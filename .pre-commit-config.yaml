@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        stages: [commit]
+      - id: end-of-file-fixer
+        stages: [commit]
+      - id: pretty-format-json
+        stages: [commit]
+        args: [--autofix]
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+        stages: [commit]
+      - id: cargo-check
+        stages: [commit]
+      - id: clippy
+        stages: [commit]
+        args: ['--tests', '--', '-D', 'warnings']

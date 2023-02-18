@@ -1,0 +1,61 @@
+---
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install cargo-get
+        run: cargo install cargo-get
+
+      - name: Get project metadata
+        id: metadata
+        run: echo "version=$(cargo get version)" >> $GITHUB_OUTPUT
+
+      - name: Check version matches tag
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: '[[ v$VERSION == $GITHUB_REF_NAME ]]'
+
+      - name: Download binaries
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: cache.yml
+          commit: ${{ github.sha }}
+          path: /tmp
+
+      - name: Rename binaries
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          mv /tmp/rs-skyjo-cli-x86_64-unknown-linux-gnu-$GITHUB_SHA/rs-skyjo-cli /tmp/rs-skyjo-cli-$VERSION-linux-x64
+          mv /tmp/rs-skyjo-cli-aarch64-unknown-linux-gnu-$GITHUB_SHA/rs-skyjo-cli /tmp/rs-skyjo-cli-$VERSION-linux-aarch64
+          mv /tmp/rs-skyjo-cli-x86_64-apple-darwin-$GITHUB_SHA/rs-skyjo-cli /tmp/rs-skyjo-cli-$VERSION-macos-x64
+
+      - name: Check rs-skyjo-cli --version matches tag
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          chmod +x /tmp/rs-skyjo-cli-$VERSION-linux-x64
+          [[ $(/tmp/rs-skyjo-cli-$VERSION-linux-x64 -V) == "rs-skyjo $VERSION" ]]
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          fail_on_unmatched_files: true
+          files: |
+            /tmp/rs-skyjo-cli-${{ steps.metadata.outputs.version }}-linux-x64
+            /tmp/rs-skyjo-cli-${{ steps.metadata.outputs.version }}-linux-aarch64
+            /tmp/rs-skyjo-cli-${{ steps.metadata.outputs.version }}-macos-x64
+
+      - name: Run cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish
